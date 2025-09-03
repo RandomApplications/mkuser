@@ -26,32 +26,33 @@
 
 PATH='/usr/bin:/bin:/usr/sbin:/sbin'
 
-if [ -d '/System/Installation' ] && [ ! -f '/usr/bin/pico' ]; then # The specified folder should exist in recoveryOS and the file should not.
-	>&2 printf '\n%s\n' 'mkuser DOWNLOAD AND INSTALL ERROR: This tool cannot be run within recoveryOS.'
-	exit 255
-elif [ "$(uname)" != 'Darwin' ]; then # Check this AFTER checking if running in recoveryOS since "uname" doesn't exist in recoveryOS.
-	>&2 printf '\n%s\n' 'mkuser DOWNLOAD AND INSTALL ERROR: This tool can only run on macOS.'
-	exit 254
-elif ! dseditgroup -o checkmember -m "$(id -un)" 'admin' > /dev/null 2>&1; then
-	>&2 printf '\n%s\n' 'mkuser DOWNLOAD AND INSTALL ERROR: This tool must be run as root or as an administrator.'
-	exit 253
-fi
-
-run_as_sudo_if_needed() {
-	if [ "$(id -u)" -ne 0 ]; then # Only need to run with "sudo" if this script itself IS NOT already running as root.
-		sudo -vn 2> /dev/null || echo '' # IF SUDO REQUIRES A PASSWORD (which won't be the case if it was already authorized less than 5 mins ago), add a line break before the prompt just for display to separate from likely "curl" output when downloading this script.
-		sudo -p 'Enter Password for "%p" to DOWNLOAD AND INSTALL mkuser: ' "$@"
-	else
-		"$@"
+if true; then # Wrap entire script in "if true" block so that if there is a incomplete "curl" download of the script that the shell throws an error instead of executing an incomplete download.
+	if [ -d '/System/Installation' ] && [ ! -f '/usr/bin/pico' ]; then # The specified folder should exist in recoveryOS and the file should not.
+		>&2 printf '\n%s\n' 'mkuser DOWNLOAD AND INSTALL ERROR: This tool cannot be run within recoveryOS.'
+		exit 255
+	elif [ "$(uname)" != 'Darwin' ]; then # Check this AFTER checking if running in recoveryOS since "uname" doesn't exist in recoveryOS.
+		>&2 printf '\n%s\n' 'mkuser DOWNLOAD AND INSTALL ERROR: This tool can only run on macOS.'
+		exit 254
+	elif ! dseditgroup -o checkmember -m "$(id -un)" 'admin' > /dev/null 2>&1; then
+		>&2 printf '\n%s\n' 'mkuser DOWNLOAD AND INSTALL ERROR: This tool must be run as root or as an administrator.'
+		exit 253
 	fi
-}
 
-# NOTE: The actual download and install script is a bash script which is run via the "bash" command below which is done like this for a couple of reasons:
-# - The parent script can be run as "sh" (or "bash" or "zsh") and the actual install script will always be properly run as "bash" without the user having to worry about that in the invocation.
-# - The install script needs to be run as root, and running is as a sub-command like this means that we can launch "bash" with "sudo" as needed without the user having to worry about that in the invocation.
-# ALSO NOTE: A here-doc is used with expansion disabled so that normal quoting and variables can be used within the sub-script without any added nested quoting issues.
+	run_as_sudo_if_needed() {
+		if [ "$(id -u)" -ne 0 ]; then # Only need to run with "sudo" if this script itself IS NOT already running as root.
+			sudo -vn 2> /dev/null || echo '' # IF SUDO REQUIRES A PASSWORD (which won't be the case if it was already authorized less than 5 mins ago), add a line break before the prompt just for display to separate from likely "curl" output when downloading this script.
+			sudo -p 'Enter Password for "%p" to DOWNLOAD AND INSTALL mkuser: ' "$@"
+		else
+			"$@"
+		fi
+	}
 
-run_as_sudo_if_needed bash << 'ACTUAL_INSTALL_SCRIPT_EOF'
+	# NOTE: The actual download and install script is a bash script which is run via the "bash" command below which is done like this for a couple of reasons:
+	# - The parent script can be run as "sh" (or "bash" or "zsh") and the actual install script will always be properly run as "bash" without the user having to worry about that in the invocation.
+	# - The install script needs to be run as root, and running is as a sub-command like this means that we can launch "bash" with "sudo" as needed without the user having to worry about that in the invocation.
+	# ALSO NOTE: A here-doc is used with expansion disabled so that normal quoting and variables can be used within the sub-script without any added nested quoting issues.
+
+	run_as_sudo_if_needed bash << 'ACTUAL_INSTALL_SCRIPT_EOF'
 PATH='/usr/bin:/bin:/usr/sbin:/sbin'
 
 echo '' # Add a line break before the following output just for display to separate from likely "sudo" prompt or "curl" output when downloading this script.
@@ -212,7 +213,7 @@ pkgutil_check_signature_exit_code="$?"
 
 echo "${pkgutil_check_signature_output}"
 
-darwin_major_version="$(uname -r | cut -d '.' -f 1)" # 17 = 10.13, 18 = 10.14, 19 = 10.15, 20 = 11.0, etc.
+darwin_major_version="$(uname -r | cut -d '.' -f 1)" # 18 = 10.14, 19 = 10.15, 20 = 11.0, 21 = 12.0, 22 = 13.0, 23 = 14.0, etc.
 if (( spctl_assess_exit_code != 0 || pkgutil_check_signature_exit_code != 0 )) || [[ "${spctl_assess_output}" != *$'\nsource='"$( (( darwin_major_version >= 18 )) && echo 'Notarized ' )"$'Developer ID\n'*"(${INTENDED_CODE_SIGNATURE_TEAM_ID})" || "${pkgutil_check_signature_output}" != *$'\n    1. Developer ID Installer: '*" (${INTENDED_CODE_SIGNATURE_TEAM_ID})"$'\n'* || ( darwin_major_version -ge 21 && "${pkgutil_check_signature_output}" != *$'\n   Notarization: trusted by the Apple notary service\n'* ) ]]; then
 	# The "spctl -avv" output on macOS 10.13 High Sierra will only ever include "source=Developer ID" even if it is actually notarized while macOS 10.14 Mojave and newer will include "source=Notarized Developer ID" and the "pkgutil --check-signature" output will only contain the "Notarization" line on macOS 12 Monterey and newer.
 	rm -f "${package_download_path}"
@@ -266,3 +267,4 @@ fi
 
 echo -e "\nmkuser DOWNLOAD AND INSTALL: Successfully installed and verified mkuser version ${latest_version}!"
 ACTUAL_INSTALL_SCRIPT_EOF
+fi

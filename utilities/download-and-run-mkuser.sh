@@ -26,36 +26,37 @@
 
 PATH='/usr/bin:/bin:/usr/sbin:/sbin'
 
-if [ -d '/System/Installation' ] && [ ! -f '/usr/bin/pico' ]; then # The specified folder should exist in recoveryOS and the file should not.
-	>&2 printf '\n%s\n' 'mkuser DOWNLOAD AND RUN ERROR: This tool cannot be run within recoveryOS.'
-	exit 255
-elif [ "$(uname)" != 'Darwin' ]; then # Check this AFTER checking if running in recoveryOS since "uname" doesn't exist in recoveryOS.
-	>&2 printf '\n%s\n' 'mkuser DOWNLOAD AND RUN ERROR: This tool can only run on macOS.'
-	exit 254
-elif ! dseditgroup -o checkmember -m "$(id -un)" 'admin' > /dev/null 2>&1; then
-	>&2 printf '\n%s\n' 'mkuser DOWNLOAD AND RUN ERROR: This tool must be run as root or as an administrator.'
-	exit 253
-fi
-
-run_as_sudo_if_needed() {
-	if [ "$(id -u)" -ne 0 ]; then # Only need to run with "sudo" if this script itself IS NOT already running as root.
-		sudo -vn 2> /dev/null || echo '' # IF SUDO REQUIRES A PASSWORD (which won't be the case if it was already authorized less than 5 mins ago), add a line break before the prompt just for display to separate from likely "curl" output when downloading this script.
-		sudo -p 'Enter Password for "%p" to DOWNLOAD AND RUN mkuser: ' "$@"
-	else
-		"$@"
+if true; then # Wrap entire script in "if true" block so that if there is a incomplete "curl" download of the script that the shell throws an error instead of executing an incomplete download.
+	if [ -d '/System/Installation' ] && [ ! -f '/usr/bin/pico' ]; then # The specified folder should exist in recoveryOS and the file should not.
+		>&2 printf '\n%s\n' 'mkuser DOWNLOAD AND RUN ERROR: This tool cannot be run within recoveryOS.'
+		exit 255
+	elif [ "$(uname)" != 'Darwin' ]; then # Check this AFTER checking if running in recoveryOS since "uname" doesn't exist in recoveryOS.
+		>&2 printf '\n%s\n' 'mkuser DOWNLOAD AND RUN ERROR: This tool can only run on macOS.'
+		exit 254
+	elif ! dseditgroup -o checkmember -m "$(id -un)" 'admin' > /dev/null 2>&1; then
+		>&2 printf '\n%s\n' 'mkuser DOWNLOAD AND RUN ERROR: This tool must be run as root or as an administrator.'
+		exit 253
 	fi
-}
 
-# NOTE: The actual download and run script is a bash script which is run via the "bash" command below which is done like this for a couple of reasons:
-# - The parent script can be run as "sh" (or "bash" or "zsh") and the actual install script will always be properly run as "bash" without the user having to worry about that in the invocation.
-# - The install script needs to be run as root, and running is as a sub-command like this means that we can launch "bash" with "sudo" as needed without the user having to worry about that in the invocation since running
-#   "sudo sh <(curl mkuser.sh)" would fail because the process substitution FD would get consumed by "sudo" instead of "sh". This way just "sh <(curl mkuser.sh)" can be run and "sudo" will be added as needed by this script.
-# ALSO NOTE: A here-doc IS NOT used since a here-doc would be passed to the "bash" command using standard input (stdin) and we need any stdin from the parent script to be passed though to the actual "mkuser" script that it run in case
-# a password is being passed using "--stdin-password" and a using here-doc would prevent/mask that since only a single stdin can exist. This makes quoting more complicated since the whole script must exist within a single quoted string.
+	run_as_sudo_if_needed() {
+		if [ "$(id -u)" -ne 0 ]; then # Only need to run with "sudo" if this script itself IS NOT already running as root.
+			sudo -vn 2> /dev/null || echo '' # IF SUDO REQUIRES A PASSWORD (which won't be the case if it was already authorized less than 5 mins ago), add a line break before the prompt just for display to separate from likely "curl" output when downloading this script.
+			sudo -p 'Enter Password for "%p" to DOWNLOAD AND RUN mkuser: ' "$@"
+		else
+			"$@"
+		fi
+	}
 
-# Suppress ShellCheck warning about expressions not expanding in single quotes since it is intentional (as described above).
-# shellcheck disable=SC2016
-run_as_sudo_if_needed bash -c '
+	# NOTE: The actual download and run script is a bash script which is run via the "bash" command below which is done like this for a couple of reasons:
+	# - The parent script can be run as "sh" (or "bash" or "zsh") and the actual install script will always be properly run as "bash" without the user having to worry about that in the invocation.
+	# - The install script needs to be run as root, and running is as a sub-command like this means that we can launch "bash" with "sudo" as needed without the user having to worry about that in the invocation since running
+	#   "sudo sh <(curl mkuser.sh)" would fail because the process substitution FD would get consumed by "sudo" instead of "sh". This way just "sh <(curl mkuser.sh)" can be run and "sudo" will be added as needed by this script.
+	# ALSO NOTE: A here-doc IS NOT used since a here-doc would be passed to the "bash" command using standard input (stdin) and we need any stdin from the parent script to be passed though to the actual "mkuser" script that it run in case
+	# a password is being passed using "--stdin-password" and a using here-doc would prevent/mask that since only a single stdin can exist. This makes quoting more complicated since the whole script must exist within a single quoted string.
+
+	# Suppress ShellCheck warning about expressions not expanding in single quotes since it is intentional (as described above).
+	# shellcheck disable=SC2016
+	run_as_sudo_if_needed bash -c '
 PATH="/usr/bin:/bin:/usr/sbin:/sbin"
 
 echo "" # Add a line break before the following output just for display to separate from likely "sudo" prompt or "curl" output when downloading this script.
@@ -220,3 +221,4 @@ fi
 
 exit "${mkuser_exit_code}" # Always exit with mkusers exit code instead of always being successful after deleting the temporary installation.
 ' -- "$@"
+fi

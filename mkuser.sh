@@ -28,7 +28,7 @@ mkuser() ( # Notice "(" instead of "{" for this function, see THIS IS A SUBSHELL
 	# All of the variables (and functions) within a subshell function only exist within the scope of the subshell function (like a regular subshell).
 	# This means that every variable does NOT need to be declared as "local" and even altering "PATH" only affects the scope of this subshell function.
 
-	readonly MKUSER_VERSION='2023.9.12-1'
+	readonly MKUSER_VERSION='2025.9.3-1'
 
 	PATH='/usr/bin:/bin:/usr/sbin:/sbin:/usr/libexec' # Add "/usr/libexec" to PATH for easy access to PlistBuddy. ("export" is not required since PATH is already exported in the environment, therefore modifying it modifies the already exported variable.)
 
@@ -538,7 +538,7 @@ mkuser() ( # Notice "(" instead of "{" for this function, see THIS IS A SUBSHELL
 					fi
 
 					if [[ -z "${this_optional_password_prompt_parameter}" || "${this_optional_password_prompt_parameter}" == 'CLI' ]]; then
-						if [[ ! -t 0 || -t 1 ]]; then # NOTE: CLI password prompt is allowed when stdin is NOT assosicated with a terminal OR regardless when stdout IS associated with a terminal so that both new user and Secure Token admin passwords can always be securely piped at once to the CLI prompts from a shell that doesn't support process substitution for the Secure Token admin password (such as strict POSIX shells like "dash"),
+						if [[ ! -t 0 || -t 1 ]]; then # NOTE: CLI password prompt is allowed when stdin is NOT associated with a terminal OR regardless when stdout IS associated with a terminal so that both new user and Secure Token admin passwords can always be securely piped at once to the CLI prompts from a shell that doesn't support process substitution for the Secure Token admin password (such as strict POSIX shells like "dash"),
 							prompt_for_user_password_cli=true
 						else # but still want to detect and error when stdout is NOT associated with a terminal but stdin IS so that the script does not hang with no input prompts being displayed.
 							>&2 echo "mkuser ERROR ${error_code}-${LINENO}: CANNOT prompt for password on the command line since output (stdout) is being captured or redirected which prevents interactively prompting for input."
@@ -837,7 +837,7 @@ mkuser() ( # Notice "(" instead of "{" for this function, see THIS IS A SUBSHELL
 					fi
 
 					if [[ -z "${this_optional_st_admin_password_prompt_parameter}" || "${this_optional_st_admin_password_prompt_parameter}" == 'CLI' ]]; then
-						if [[ ! -t 0 || -t 1 ]]; then # NOTE: CLI password prompt is allowed when stdin is NOT assosicated with a terminal OR regardless when stdout IS associated with a terminal so that both new user and Secure Token admin passwords can always be securely piped at once to the CLI prompts from a shell that doesn't support process substitution for the Secure Token admin password (such as strict POSIX shells like "dash"),
+						if [[ ! -t 0 || -t 1 ]]; then # NOTE: CLI password prompt is allowed when stdin is NOT associated with a terminal OR regardless when stdout IS associated with a terminal so that both new user and Secure Token admin passwords can always be securely piped at once to the CLI prompts from a shell that doesn't support process substitution for the Secure Token admin password (such as strict POSIX shells like "dash"),
 							prompt_for_st_admin_password_cli=true
 						else # but still want to detect and error when stdout is NOT associated with a terminal but stdin IS so that the script does not hang with no input prompts being displayed.
 							>&2 echo "mkuser ERROR ${error_code}-${LINENO}: CANNOT prompt for Secure Token admin password on the command line since output (stdout) is being captured or redirected which prevents interactively prompting for input."
@@ -1072,6 +1072,12 @@ mkuser() ( # Notice "(" instead of "{" for this function, see THIS IS A SUBSHELL
 
 	# <MKUSER-BEGIN-CODE-TO-REMOVE-FROM-PACKAGE-SCRIPT> !!! DO NOT MOVE OR REMOVE THIS COMMENT, IT EXISTING AND BEING ON ITS OWN LINE IS NECESSARY FOR PACKAGE CREATION !!!
 	if $show_version; then
+		if [[ ! -t 1 ]]; then # Only output the raw version number if stdout IS NOT associated with an interactive terminal (for scripts to be able to easily check the current version via command substitution).
+			echo "${MKUSER_VERSION}"
+			return 0
+		fi
+
+		# When the version is checked in an interactive Terminal, show full copyright info AND check for updates.
 		echo -en "mkuser: Version ${MKUSER_VERSION}\nCopyright (c) $(date '+%Y') Free Geek - MIT License\nhttps://mkuser.sh\n\nUpdate Check: "
 
 		if [[ "${MKUSER_VERSION}" != *'-0' ]]; then
@@ -1092,7 +1098,7 @@ mkuser() ( # Notice "(" instead of "{" for this function, see THIS IS A SUBSHELL
 					version_comparison_result="$(osascript -l 'JavaScript' -e 'run = argv => ObjC.wrap(argv[0]).compareOptions(argv[1], $.NSNumericSearch)' -- "${latest_version}" "${MKUSER_VERSION}" 2> /dev/null)"
 
 					if (( version_comparison_result == 1 )); then
-						echo "Version ${latest_version} is Now Available!${fallback_version_note}"
+						echo "Version ${latest_version} Is Now Available!${fallback_version_note}"
 					else
 						echo "Current Version NEWER Than Latest Release (${latest_version})"
 					fi
@@ -2306,7 +2312,7 @@ ${ansi_bold}UNDOCUMENTED OPTIONS:${clear_ansi}"
 	fi
 	# <MKUSER-END-CODE-TO-REMOVE-FROM-PACKAGE-SCRIPT> !!! DO NOT MOVE OR REMOVE THIS COMMENT, IT EXISTING AND BEING ON ITS OWN LINE IS NECESSARY FOR PACKAGE CREATION !!!
 
-	darwin_major_version="$(uname -r | cut -d '.' -f 1)" # 17 = 10.13, 18 = 10.14, 19 = 10.15, 20 = 11.0, etc.
+	darwin_major_version="$(uname -r | cut -d '.' -f 1)" # 18 = 10.14, 19 = 10.15, 20 = 11.0, 21 = 12.0, 22 = 13.0, 23 = 14.0, etc.
 
 	if (( darwin_major_version < 17 )); then
 		>&2 echo "mkuser ERROR ${error_code}-${LINENO}: This tool has only been tested to work on macOS 10.13 High Sierra and newer."
@@ -3658,9 +3664,9 @@ print_mkuser_function {
 		declare -a escaped_valid_options_for_package_check_without_picture_or_password=()
 		for this_valid_option_for_package in "${valid_options_for_package[@]}"; do
 			if [[ -n "${this_valid_option_for_package}" ]]; then
-				this_escaped_valid_options_for_package="$(LC_CTYPE=C; printf '%q' "${this_valid_option_for_package}")" # NOTE: MUST set "LC_CTYPE=C" to properly escape multi-byte characters into their UTF-8 octal-byte escaped notation instead of into other multi-byte characters in some other encoding that may not render properly. (And since it is only set within a command substitution subshell is only affects this single "printf '%q'" statement.)
-				escaped_valid_options_for_package+=( "${this_escaped_valid_options_for_package}" )
-				escaped_valid_options_for_package_check_without_picture_or_password+=( "${this_escaped_valid_options_for_package}" ) # This will be identical to escaped_valid_options_for_package except the "--picture" and "--password" options will not be added so that we can run a "--check-only" before extracting the picture (and the blank/empty password will not be validated during a package check only run).
+				this_escaped_valid_option_for_package="$(LC_CTYPE=C; printf '%q' "${this_valid_option_for_package}")" # NOTE: MUST set "LC_CTYPE=C" to properly escape multi-byte characters into their UTF-8 octal-byte escaped notation instead of into other multi-byte characters in some other encoding that may not render properly. (And since it is only set within a command substitution subshell is only affects this single "printf '%q'" statement.)
+				escaped_valid_options_for_package+=( "${this_escaped_valid_option_for_package}" )
+				escaped_valid_options_for_package_check_without_picture_or_password+=( "${this_escaped_valid_option_for_package}" ) # This will be identical to escaped_valid_options_for_package except the "--picture" and "--password" options will not be added so that we can run a "--check-only" before extracting the picture (and the blank/empty password will not be validated during a package check only run).
 			fi
 		done
 
@@ -6655,7 +6661,9 @@ function run(argv) {
 		touch '/private/var/db/.AppleSetupDone'
 		chown 0:0 '/private/var/db/.AppleSetupDone' # Make sure this file is properly owned by root:wheel.
 
-		if [[ ! -f '/private/var/db/.AppleSetupDone' ]]; then
+		rm -f '/private/var/db/.AppleSetupTermsOfService' # Starting in macOS 15.4 Sequoia, this file may exist by default and is DELETED when the "Terms and Conditions" are manually agreed to during Setup Assistant. So, delete it so that the T&C Setup Assistant screen is not shown when we are trying to totally skip Setup Assistant.
+
+		if [[ ! -f '/private/var/db/.AppleSetupDone' || -f '/private/var/db/.AppleSetupTermsOfService' ]]; then
 			>&2 echo "mkuser ERROR ${error_code}-${LINENO}: Created user \"${user_account_name}\", but failed to skip Setup Assistant on first boot."
 			return "${error_code}"
 		fi
